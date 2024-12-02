@@ -1,9 +1,12 @@
-from playwright.async_api import async_playwright
-from lxml.html import HtmlElement, HTMLParser, fromstring, tostring
-from logic.objects.url import Url
-from urllib.parse import urlsplit
-from logic.log import logger
+import asyncio
 from logging import Logger
+from urllib.parse import urlsplit
+
+from lxml.html import HtmlElement, HTMLParser, fromstring, tostring
+from playwright.async_api import async_playwright
+
+from logic.log import logger
+from logic.objects.url import Url
 
 
 class BaseCrawler:
@@ -19,7 +22,7 @@ class BaseCrawler:
     ) -> None:
         self.root_url: Url = root_url
         self.headless: bool = headless
-        self.logger = logger
+        self.logger: Logger = logger
         self._domain: str | None = None
 
     @property
@@ -57,9 +60,20 @@ class BaseCrawler:
         except Exception:
             return None
 
+    @staticmethod
+    def extract_urls_with_texts(html_element: HtmlElement) -> list[dict[str, str]] | None:
+        """
+        Search for urls in body of provided HtmlElement.
+        - :arg html_element: Lxml HtmlElement representing <body> of current webpage.
+        """
+        urls: list[HtmlElement] = html_element.xpath('/html/body//a[@href and not(@href="") and not(@href=" ")]')
+        return [
+            {'value': url.xpath('./@href')[0], 'anchor': url.text_content().strip()} for url in urls
+        ] if urls else None
 
-    def parse_page(self, html: HtmlElement) -> dict | None:
+    async def parse_page(self, html: HtmlElement) -> dict | None:
         """"""
+        await asyncio.sleep(10)
         print(f'parse: {html.base_url}')
         return
 
@@ -70,7 +84,16 @@ class BaseCrawler:
         user_agent: str,
         resolution: str,
         proxy_settings: dict | None = None):
-        """"""
+        """
+        Send request to specified url.
+        Parse page and return dictionary with url object and
+        a result of calling a parse_page method on requested page.
+        :param url: Url object that will be requested.
+        :param user_agent: UserAgent that will be used for this request.
+        :param resolution: String representing a resolution ie: `1920x1080`
+        :param proxy_settings: Additional proxy settings if request should be made with proxy.
+        :return: Dictionary with keys `url` and `result`.
+        """
         try:
             async with async_playwright() as pw:
                 # Increase number of requests on the Url object.
@@ -100,7 +123,7 @@ class BaseCrawler:
                 # Prepare lxml HtmlElement and do whatever you want with it.
                 html = self.html(page_source=await page.content(), base_url=page.url)
 
-                return {'url': Url, 'result': self.parse_page(html=html)}
+                return {'url': Url, 'result': await self.parse_page(html=html)}
         except Exception as exc:
             self.logger.error(
                 f'({self.request.__qualname__}): exception="{exc.__class__}", '

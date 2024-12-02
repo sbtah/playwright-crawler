@@ -32,11 +32,11 @@ if __name__ == '__main__':
     url_root = create_url(test_url)
     urls_to_crawl = create_urls_collection(urls=test_urls)
 
-    crawler = Crawler(root_url=url_root)
+    crawler = Crawler(root_url=url_root, sleep_time=2, urls_to_crawl=urls_to_crawl)
 
     asyncio.run(
         crawler.run_requests(
-            iterable_of_urls=urls_to_crawl,
+            urls=urls_to_crawl,
             user_agent=USER_AGENTS[2],
             resolution=RESOLUTIONS[0]
         )
